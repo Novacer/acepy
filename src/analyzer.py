@@ -31,7 +31,6 @@ def analyze(tree: ast.Module) -> dict:
     for function in functions:
         args = set()
         for arg in function.args.args:
-            print(ast.dump(arg))
             annotation = arg.annotation.id if arg.annotation is not None else None
             args.add((arg.arg, annotation))
         returns = function.returns.id if function.returns is not None else None
