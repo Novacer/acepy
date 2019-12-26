@@ -26,7 +26,7 @@ def analyze(tree: ast.Module) -> dict:
     :return: a dictionary with function names as key
     """
     functions = tree.body
-    dependency_graph = dict()
+    dependency_map = dict()
 
     for function in functions:
         args = set()
@@ -35,6 +35,6 @@ def analyze(tree: ast.Module) -> dict:
             annotation = arg.annotation.id if arg.annotation is not None else None
             args.add((arg.arg, annotation))
         returns = function.returns.id if function.returns is not None else None
-        dependency_graph[function.name] = Dependency(args, returns, function)
+        dependency_map[function.name] = Dependency(args, returns, function)
 
-    return dependency_graph
+    return dependency_map
