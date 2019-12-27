@@ -31,6 +31,12 @@ class ExecutionNodeTest(unittest.TestCase):
         self.assertTrue(node.executed)
         self.assertEqual(node.result, [1, 2])
 
+    def test_cannot_execute(self):
+        node = ExecutionNode(self.name, f, self.dep_data)
+        node.param_vals = {'param1': 1}
+        self.assertFalse(node.can_execute())
+        self.assertRaises(AssertionError, node.execute)
+
 
 if __name__ == '__main__':
     unittest.main()
