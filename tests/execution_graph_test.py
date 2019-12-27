@@ -1,6 +1,7 @@
 import unittest
 from src.execution_graph import *
 from src.analyzer import *
+from concurrent.futures import ThreadPoolExecutor
 
 
 def two_params(x: 'param1', y: 'param2') -> 'result':
@@ -34,8 +35,8 @@ class ExecutionGraphTest(unittest.TestCase):
         }
         results_map = {}
         self.assertTrue(node.can_execute())
-        result = node.execute(results_map)
-        self.assertEqual(result, [1, 2])
+        with ThreadPoolExecutor() as executor:
+            node.execute(results_map, executor)
         self.assertTrue(node.executed)
         self.assertEqual(node.result, [1, 2])
         self.assertEqual(results_map, {'two_params': [1, 2]})
@@ -44,7 +45,7 @@ class ExecutionGraphTest(unittest.TestCase):
         node = ExecutionNode(self.name, two_params, self.node_dep_data)
         node.param_vals = {'param1': 1}
         self.assertFalse(node.can_execute())
-        self.assertRaises(AssertionError, node.execute, {})
+        self.assertRaises(AssertionError, node.execute, {}, None)
 
     def test_graph_init(self):
         graph = ExecutionGraph(self.tree, self.graph_dep_data)
