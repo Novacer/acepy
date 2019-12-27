@@ -43,11 +43,12 @@ class ExecutionNode:
     def produces(self):
         return self.dep_data.returns
 
-    def execute(self, results_map: dict, executor: concurrent.futures.ThreadPoolExecutor):
+    def execute(self, results_map: dict, executor: concurrent.futures.ThreadPoolExecutor) -> list:
         """
         Execute the node, store the result in results_map, and execute any subscribers if possible
         :param results_map: global map to store the results
-        :return: the result of executing this node
+        :param executor: a ThreadPoolExecutor to submit tasks to
+        :return: a list of futures representing pending child tasks which are launched from this node
         """
         assert self.can_execute()
 
@@ -110,7 +111,7 @@ class ExecutionGraph:
         self.root = independent
         self.branches = dependent
 
-    def execute(self) -> dict:
+    def execute(self, max_workers=None) -> dict:
         """
         Execute all nodes in the graph
         :return: map of all function names -> their results
@@ -118,13 +119,18 @@ class ExecutionGraph:
         # TODO add ability to pass arguments to root nodes (like user id etc)
         results_map = {}
 
-        with concurrent.futures.ThreadPoolExecutor() as executor:
+        with concurrent.futures.ThreadPoolExecutor(max_workers) as executor:
             futures = [executor.submit(node.execute, results_map, executor) for node in self.root]
             ExecutionGraph.await_until_complete(futures)
         return results_map
 
     @staticmethod
-    def await_until_complete(futures):
-        for future in futures:
-            ExecutionGraph.await_until_complete(future.result())
+    def await_until_complete(futures) -> None:
+        """
+        Blocks until all tasks AND child tasks have been completed
+        :param futures: a List[Future] whose result() may be another List[Future]
+        """
+        for future in concurrent.futures.as_completed(futures):
+            if isinstance(future, concurrent.futures.Future):
+                ExecutionGraph.await_until_complete(future.result())
 

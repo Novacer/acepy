@@ -54,7 +54,22 @@ class ExecutionGraphTest(unittest.TestCase):
 
     def test_graph_execute_single_threaded(self):
         graph = ExecutionGraph(self.tree, self.graph_dep_data)
-        results = graph.execute()
+        results = graph.execute(max_workers=1)
+        # takes approx 6 seconds
+        expected = {
+            'f': 123,
+            'g': 345,
+            'h': [123, 345],
+            'a': [123, 345, 567],
+            'b': [123, 345, 789],
+            'c': [123, 345, 567, 123, 345, 789]
+        }
+        self.assertDictEqual(results, expected)
+
+    def test_graph_execute_multi_threaded(self):
+        graph = ExecutionGraph(self.tree, self.graph_dep_data)
+        results = graph.execute(max_workers=2)
+        # takes approx 4 seconds
         expected = {
             'f': 123,
             'g': 345,
