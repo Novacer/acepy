@@ -3,9 +3,21 @@ from .analyzer import Dependency
 
 
 class ExecutionNode:
-    def __init__(self, name: str, byte_code, dep_data: Dependency):
+    """
+    An execution node represents a single function which takes zero or more arguments and returns a single value.
+    A node can be executed if and only if all of its parameters (dependencies) have been resolved.
+    Otherwise, a node is defined to be blocking.
+    A node can have zero or more subscribers, which are other nodes that depend on the output of the current node.
+    """
+    def __init__(self, name: str, function_reference, dep_data: Dependency):
+        """
+        Constructs an execution node
+        :param name: string representing name of the function
+        :param function_reference: reference to the function in memory
+        :param dep_data: dependency data of the function
+        """
         self.name = name
-        self.code = byte_code
+        self.code = function_reference
         self.subscribers = []
         self.param_vals = {}  # map type -> val as they come in
         self.dep_data = dep_data
@@ -19,6 +31,9 @@ class ExecutionNode:
         self.subscribers.append(node)
 
     def can_execute(self):
+        """
+        :return: Returns true if the node can be executed (all dependencies have been resolved)
+        """
         for (_, argtype) in self.dep_data.dependencies:
             if argtype not in self.param_vals:
                 return False
@@ -28,6 +43,11 @@ class ExecutionNode:
         return self.dep_data.returns
 
     def execute(self, results_map: dict):
+        """
+        Execute the node, store the result in results_map, and execute any subscribers if possible
+        :param results_map: global map to store the results
+        :return: the result of executing this node
+        """
         assert self.can_execute()
 
         if self.executed:
@@ -42,11 +62,22 @@ class ExecutionNode:
 
             if subscriber.can_execute():
                 subscriber.execute(results_map)
+
         return self.result
 
 
 class ExecutionGraph:
+    """
+    An execution graph is a collection of execution nodes (vertices) which are joined by dependencies (edges).
+    Two nodes are dependent if the result of one is the parameter of the other.
+    Independent nodes are considered the root (there may be multiple).
+    """
     def __init__(self, tree: ast.Module, dep_data: dict):
+        """
+        Construct an Execution Graph
+        :param tree: an AST Module node produced by analyzer.parse(code)
+        :param dep_data: the dependency data produced by analyzer.analyze(tree)
+        """
         self.codeMap = {}
         bytecode = compile(tree, filename='<ast>', mode='exec')
         namespace = {}
@@ -78,6 +109,11 @@ class ExecutionGraph:
         self.branches = dependent
 
     def execute(self) -> dict:
+        """
+        Execute all nodes in the graph
+        :return: map of all function names -> their results
+        """
+        # TODO add ability to pass arguments to root nodes (like user id etc)
         results_map = {}
         for node in self.root:
             node.execute(results_map)

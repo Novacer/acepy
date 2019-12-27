@@ -1,5 +1,4 @@
 import unittest
-import ast
 from src.analyzer import *
 
 
