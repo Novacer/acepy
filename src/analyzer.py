@@ -25,7 +25,7 @@ def analyze(tree: ast.Module) -> dict:
     :param tree: an AST Module node
     :return: a dictionary with function names as key
     """
-    functions = tree.body
+    functions = [node for node in tree.body if isinstance(node, ast.FunctionDef)]
     dependency_map = dict()
 
     for function in functions:
