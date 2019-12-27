@@ -29,11 +29,22 @@ def analyze(tree: ast.Module) -> dict:
     dependency_map = dict()
 
     for function in functions:
-        args = set()
+        args = []
         for arg in function.args.args:
-            annotation = arg.annotation.id if arg.annotation is not None else None
-            args.add((arg.arg, annotation))
-        returns = function.returns.id if function.returns is not None else None
+            annotation = None
+            if arg.annotation is not None:
+                if isinstance(arg.annotation, ast.Str):
+                    annotation = arg.annotation.s
+                else:
+                    annotation = arg.annotation.id
+            args.append((arg.arg, annotation))
+
+        returns = None
+        if function.returns is not None:
+            if isinstance(function.returns, ast.Str):
+                returns = function.returns.s
+            else:
+                returns = function.returns.id
         dependency_map[function.name] = Dependency(args, returns, function)
 
     return dependency_map
