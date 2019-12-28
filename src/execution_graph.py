@@ -1,5 +1,6 @@
 import ast
 from .analyzer import Dependency
+import concurrent.futures
 
 
 class ExecutionNode:
@@ -42,28 +43,30 @@ class ExecutionNode:
     def produces(self):
         return self.dep_data.returns
 
-    def execute(self, results_map: dict):
+    def execute(self, results_map: dict, executor: concurrent.futures.ThreadPoolExecutor) -> list:
         """
         Execute the node, store the result in results_map, and execute any subscribers if possible
         :param results_map: global map to store the results
-        :return: the result of executing this node
+        :param executor: a ThreadPoolExecutor to submit tasks to
+        :return: a list of futures representing pending child tasks which are launched from this node
         """
         assert self.can_execute()
 
         if self.executed:
-            return self.result
+            return
         param_sequence = [self.param_vals[argtype] for (_, argtype) in self.dep_data.dependencies]
         self.result = self.code(*param_sequence)
         results_map[self.name] = self.result
         self.executed = True
 
+        futures = []
         for subscriber in self.subscribers:
             subscriber.param_vals[self.produces()] = self.result
 
             if subscriber.can_execute():
-                subscriber.execute(results_map)
+                futures.append(executor.submit(subscriber.execute, results_map, executor))
 
-        return self.result
+        return futures
 
 
 class ExecutionGraph:
@@ -108,14 +111,26 @@ class ExecutionGraph:
         self.root = independent
         self.branches = dependent
 
-    def execute(self) -> dict:
+    def execute(self, max_workers=None) -> dict:
         """
         Execute all nodes in the graph
         :return: map of all function names -> their results
         """
         # TODO add ability to pass arguments to root nodes (like user id etc)
         results_map = {}
-        for node in self.root:
-            node.execute(results_map)
 
+        with concurrent.futures.ThreadPoolExecutor(max_workers) as executor:
+            futures = [executor.submit(node.execute, results_map, executor) for node in self.root]
+            ExecutionGraph.await_until_complete(futures)
         return results_map
+
+    @staticmethod
+    def await_until_complete(futures) -> None:
+        """
+        Blocks until all tasks AND child tasks have been completed
+        :param futures: a List[Future] whose result() may be another List[Future]
+        """
+        for future in concurrent.futures.as_completed(futures):
+            if isinstance(future, concurrent.futures.Future):
+                ExecutionGraph.await_until_complete(future.result())
+
