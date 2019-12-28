@@ -32,13 +32,12 @@ def analyze(tree: ast.Module) -> Dict[str, Dependency]:
     for function in functions:
         args = []
         for arg in function.args.args:
-            annotation = None
             if arg.annotation is not None:
                 if isinstance(arg.annotation, ast.Str):
                     annotation = arg.annotation.s
                 else:
                     annotation = arg.annotation.id
-            args.append((arg.arg, annotation))
+                args.append((arg.arg, annotation))
 
         returns = None
         if function.returns is not None:

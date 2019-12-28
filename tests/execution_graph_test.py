@@ -54,7 +54,11 @@ class ExecutionGraphTest(unittest.TestCase):
 
     def test_graph_execute_single_threaded(self):
         graph = ExecutionGraph(self.tree, self.graph_dep_data)
-        results = graph.execute(max_workers=1)
+        start_params = {
+            'f': [123, 'abc'],
+            'g': [345]
+        }
+        results = graph.execute(start_params=start_params, max_workers=1)
         # takes approx 6 seconds
         expected = {
             'f': 123,
@@ -68,7 +72,11 @@ class ExecutionGraphTest(unittest.TestCase):
 
     def test_graph_execute_multi_threaded(self):
         graph = ExecutionGraph(self.tree, self.graph_dep_data)
-        results = graph.execute(max_workers=2)
+        start_params = {
+            'f': [123, 'abc'],
+            'g': [345]
+        }
+        results = graph.execute(start_params, max_workers=2)
         # takes approx 4 seconds
         expected = {
             'f': 123,

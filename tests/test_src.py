@@ -1,12 +1,13 @@
 import time
 
 
-def f() -> 'result1':
+def f(x, y) -> 'result1':
+    print('f: ' + str(y))
     time.sleep(1)
     return 123
 
 
-def g() -> 'result2':
+def g(y) -> 'result2':
     time.sleep(1)
     return 345
 
