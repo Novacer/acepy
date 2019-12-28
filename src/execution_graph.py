@@ -2,6 +2,7 @@ import ast
 from .analyzer import Dependency
 from typing import List, Dict, Any, Union
 from concurrent.futures import ThreadPoolExecutor, Future, as_completed
+from collections import defaultdict
 
 
 class ExecutionNode:
@@ -45,26 +46,34 @@ class ExecutionNode:
     def produces(self) -> str:
         return self.dep_data.returns
 
-    def execute(self, results_map: dict, executor: ThreadPoolExecutor) -> Union[List[Future], None]:
+    def execute(self, results_map: dict, executor: ThreadPoolExecutor,
+                start_params: List[Any] = None) -> Union[List[Future], None]:
         """
         Execute the node, store the result in results_map, and execute any subscribers if possible
         :param results_map: global map to store the results
         :param executor: a ThreadPoolExecutor to submit tasks to
+        :param start_params: map of
         :return: a list of futures representing pending child tasks which are launched from this node
         """
         assert self.can_execute()
         if self.executed:
             return
 
-        param_sequence = [self.param_vals[argtype] for (_, argtype) in self.dep_data.dependencies]
-        self.result = self.code(*param_sequence)
+        if self.is_independent():
+            if start_params is not None:
+                self.result = self.code(*start_params)
+            else:
+                self.result = self.code()
+        else:
+            param_sequence = [self.param_vals[argtype] for (_, argtype) in self.dep_data.dependencies]
+            self.result = self.code(*param_sequence)
+
         results_map[self.name] = self.result
         self.executed = True
 
         futures = []
         for subscriber in self.subscribers:
             subscriber.param_vals[self.produces()] = self.result
-
             if subscriber.can_execute():
                 futures.append(executor.submit(subscriber.execute, results_map, executor))
 
@@ -114,16 +123,24 @@ class ExecutionGraph:
         self.root = independent
         self.branches = dependent
 
-    def execute(self, max_workers: int = None) -> Dict[str, Any]:
+    def execute(self, start_params: Dict[str, List[Any]] = None, max_workers: int = None) -> Dict[str, Any]:
         """
         Execute all nodes in the graph
         :return: map of all function names -> their results
         """
-        # TODO add ability to pass arguments to root nodes (like user id etc)
         results_map = {}
+        sp_wrapper = defaultdict(list, start_params)
 
         with ThreadPoolExecutor(max_workers) as executor:
-            futures = [executor.submit(node.execute, results_map, executor) for node in self.root]
+            futures = [
+                executor.submit(
+                    node.execute,
+                    results_map=results_map,
+                    executor=executor,
+                    start_params=sp_wrapper[node.name]
+                )
+                for node in self.root
+            ]
             ExecutionGraph.await_until_complete(futures)
         return results_map
 
