@@ -3,7 +3,6 @@ from src.analyzer import *
 
 
 class AnalyzerTest(unittest.TestCase):
-
     function_str = '''def f(x: 'param') -> 'result': return x'''
     function_named = '''def f(x: param) -> result: return x'''
 
