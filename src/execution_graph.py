@@ -1,6 +1,7 @@
 import ast
 from .analyzer import Dependency
-import concurrent.futures
+from typing import List, Dict, Any, Union
+from concurrent.futures import ThreadPoolExecutor, Future, as_completed
 
 
 class ExecutionNode:
@@ -10,6 +11,7 @@ class ExecutionNode:
     Otherwise, a node is defined to be blocking.
     A node can have zero or more subscribers, which are other nodes that depend on the output of the current node.
     """
+
     def __init__(self, name: str, function_reference, dep_data: Dependency):
         """
         Constructs an execution node
@@ -43,7 +45,7 @@ class ExecutionNode:
     def produces(self):
         return self.dep_data.returns
 
-    def execute(self, results_map: dict, executor: concurrent.futures.ThreadPoolExecutor) -> list:
+    def execute(self, results_map: dict, executor: ThreadPoolExecutor) -> Union[List[Future], None]:
         """
         Execute the node, store the result in results_map, and execute any subscribers if possible
         :param results_map: global map to store the results
@@ -51,9 +53,9 @@ class ExecutionNode:
         :return: a list of futures representing pending child tasks which are launched from this node
         """
         assert self.can_execute()
-
         if self.executed:
             return
+
         param_sequence = [self.param_vals[argtype] for (_, argtype) in self.dep_data.dependencies]
         self.result = self.code(*param_sequence)
         results_map[self.name] = self.result
@@ -75,7 +77,8 @@ class ExecutionGraph:
     Two nodes are dependent if the result of one is the parameter of the other.
     Independent nodes are considered the root (there may be multiple).
     """
-    def __init__(self, tree: ast.Module, dep_data: dict):
+
+    def __init__(self, tree: ast.Module, dep_data: Dict[str, Dependency]):
         """
         Construct an Execution Graph
         :param tree: an AST Module node produced by analyzer.parse(code)
@@ -111,7 +114,7 @@ class ExecutionGraph:
         self.root = independent
         self.branches = dependent
 
-    def execute(self, max_workers=None) -> dict:
+    def execute(self, max_workers: int = None) -> Dict[str, Any]:
         """
         Execute all nodes in the graph
         :return: map of all function names -> their results
@@ -119,18 +122,17 @@ class ExecutionGraph:
         # TODO add ability to pass arguments to root nodes (like user id etc)
         results_map = {}
 
-        with concurrent.futures.ThreadPoolExecutor(max_workers) as executor:
+        with ThreadPoolExecutor(max_workers) as executor:
             futures = [executor.submit(node.execute, results_map, executor) for node in self.root]
             ExecutionGraph.await_until_complete(futures)
         return results_map
 
     @staticmethod
-    def await_until_complete(futures) -> None:
+    def await_until_complete(futures: List[Future]) -> None:
         """
         Blocks until all tasks AND child tasks have been completed
         :param futures: a List[Future] whose result() may be another List[Future]
         """
-        for future in concurrent.futures.as_completed(futures):
-            if isinstance(future, concurrent.futures.Future):
+        for future in as_completed(futures):
+            if isinstance(future, Future):
                 ExecutionGraph.await_until_complete(future.result())
-

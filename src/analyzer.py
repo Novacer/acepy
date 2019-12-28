@@ -1,4 +1,5 @@
 import ast
+from typing import Dict
 
 
 class Dependency:
@@ -18,7 +19,7 @@ def parse(code: str) -> ast.Module:
     return ast.parse(code, mode='exec')
 
 
-def analyze(tree: ast.Module) -> dict:
+def analyze(tree: ast.Module) -> Dict[str, Dependency]:
     """
     Analyze AST Module to produce a map of all functions to their parameters (dependencies) and return value (result)
 
@@ -26,7 +27,7 @@ def analyze(tree: ast.Module) -> dict:
     :return: a dictionary with function names as key
     """
     functions = [node for node in tree.body if isinstance(node, ast.FunctionDef)]
-    dependency_map = dict()
+    dependency_map = {}
 
     for function in functions:
         args = []
