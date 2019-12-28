@@ -27,13 +27,13 @@ class ExecutionNode:
         self.executed = False
         self.result = None
 
-    def is_independent(self):
+    def is_independent(self) -> bool:
         return len(self.dep_data.dependencies) == 0
 
-    def add_subscriber(self, node: 'ExecutionNode'):
+    def add_subscriber(self, node: 'ExecutionNode') -> None:
         self.subscribers.append(node)
 
-    def can_execute(self):
+    def can_execute(self) -> bool:
         """
         :return: Returns true if the node can be executed (all dependencies have been resolved)
         """
@@ -42,7 +42,7 @@ class ExecutionNode:
                 return False
         return True
 
-    def produces(self):
+    def produces(self) -> str:
         return self.dep_data.returns
 
     def execute(self, results_map: dict, executor: ThreadPoolExecutor) -> Union[List[Future], None]:
