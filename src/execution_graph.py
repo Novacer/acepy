@@ -1,6 +1,6 @@
 import ast
 from .analyzer import Dependency
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Union
 from concurrent.futures import ThreadPoolExecutor, Future, as_completed
 
 
@@ -45,7 +45,7 @@ class ExecutionNode:
     def produces(self):
         return self.dep_data.returns
 
-    def execute(self, results_map: dict, executor: ThreadPoolExecutor) -> List[Future] | None:
+    def execute(self, results_map: dict, executor: ThreadPoolExecutor) -> Union[List[Future], None]:
         """
         Execute the node, store the result in results_map, and execute any subscribers if possible
         :param results_map: global map to store the results
