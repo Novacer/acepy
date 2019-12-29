@@ -1,11 +1,17 @@
 import unittest
 from src.execution_graph import *
-from src.analyzer import *
+from src.analyzer import analyze, parse
 from concurrent.futures import ThreadPoolExecutor
 
 
 def two_params(x: 'param1', y: 'param2') -> 'result':
     return [x, y]
+
+
+res_error_func = '''
+def res_error(e: 'does_not_exist'):
+    pass
+'''
 
 
 class ExecutionGraphTest(unittest.TestCase):
@@ -16,7 +22,8 @@ class ExecutionGraphTest(unittest.TestCase):
 
     def setUp(self) -> None:
         with open('test_src.py', 'r') as src:
-            self.tree = parse(src.read())
+            self.src = src.read()
+            self.tree = parse(self.src)
 
         self.graph_dep_data = analyze(self.tree)
 
@@ -87,6 +94,19 @@ class ExecutionGraphTest(unittest.TestCase):
             'c': [123, 345, 567, 123, 345, 789]
         }
         self.assertDictEqual(results, expected)
+
+    def test_graph_resolution_error(self):
+        src = self.src + res_error_func
+        tree = parse(src)
+        dep_data = analyze(tree)
+        self.assertRaises(DependencyResolutionError, ExecutionGraph, tree, dep_data)
+
+    def test_cycle_error(self):
+        with open('test_cycle_src.py', 'r') as src:
+            tree = parse(src.read())
+            dep_data = analyze(tree)
+
+        self.assertRaises(NoRootNodeError, ExecutionGraph, tree, dep_data)
 
 
 if __name__ == '__main__':

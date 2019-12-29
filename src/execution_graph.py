@@ -1,6 +1,6 @@
 import ast
-from .analyzer import Dependency
-from typing import List, Dict, Any, Union
+from .analyzer import Dependency, returns_are_unique
+from typing import List, Dict, Any, Union, Set
 from concurrent.futures import ThreadPoolExecutor, Future, as_completed
 from collections import defaultdict
 
@@ -92,7 +92,15 @@ class ExecutionGraph:
         Construct an Execution Graph
         :param tree: an AST Module node produced by analyzer.parse(code)
         :param dep_data: the dependency data produced by analyzer.analyze(tree)
+        :raises DuplicateReturnAnnotationError if two functions have the same return annotation
+        :raises NoRootNodeError if every function has annotated parameters
+        :raises DependencyResolutionError if no function which produces a dependency exists
         """
+
+        # check output annotation of every function is unique, else graph cannot be built
+        if not returns_are_unique(dep_data):
+            raise DuplicateReturnAnnotationError
+
         self.codeMap = {}
         bytecode = compile(tree, filename='<ast>', mode='exec')
         namespace = {}
@@ -108,17 +116,27 @@ class ExecutionGraph:
             else:
                 dependent.add(node)
 
+        # assert a starting point exists
+        if len(independent) == 0:
+            raise NoRootNodeError
+
         # resolve all dependencies
         for node in dependent:
             depends_on = set([argType for (_, argType) in node.dep_data.dependencies])
+            resolved = set()
             for indep_node in independent:
                 if indep_node.produces() in depends_on:
                     indep_node.add_subscriber(node)
+                    resolved.add(indep_node.produces())
             for dep_node in dependent:
                 if node is not dep_node and dep_node.produces() in depends_on:
                     dep_node.add_subscriber(node)
+                    resolved.add(dep_node.produces())
 
-            # TODO check if there is dependency not resolved
+            # assert all dependencies have been resolved
+            difference = depends_on.difference(resolved)
+            if len(difference) != 0:
+                raise DependencyResolutionError(difference)
 
         self.root = independent
         self.branches = dependent
@@ -153,3 +171,28 @@ class ExecutionGraph:
         for future in as_completed(futures):
             if isinstance(future, Future):
                 ExecutionGraph.await_until_complete(future.result())
+
+
+class DependencyResolutionError(Exception):
+    def __init__(self, dependencies: Set[str]):
+        self.message = 'Dependencies not resolved: ' + str(list(dependencies))
+
+    def __str__(self):
+        return self.message
+
+
+class NoRootNodeError(Exception):
+    def __init__(self):
+        self.message = 'Error: graph does not have a root node. You need at least one function with no annotated ' \
+                       'parameters '
+
+    def __str__(self):
+        return self.message
+
+
+class DuplicateReturnAnnotationError(Exception):
+    def __init__(self):
+        self.message = 'Error: duplicate return annotations found. Return annotations must be unique'
+
+    def __str__(self):
+        return self.message
