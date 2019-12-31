@@ -101,7 +101,6 @@ class ExecutionGraph:
         if not returns_are_unique(dep_data):
             raise DuplicateReturnAnnotationError
 
-        self.codeMap = {}
         bytecode = compile(tree, filename='<ast>', mode='exec')
         namespace = {}
         exec(bytecode, namespace)
@@ -109,7 +108,6 @@ class ExecutionGraph:
         dependent = set()
         for function_name, dependency in dep_data.items():
             function_code = namespace[function_name]
-            self.codeMap[function_name] = function_code
             node = ExecutionNode(function_name, function_code, dependency)
             if node.is_independent():
                 independent.add(node)
